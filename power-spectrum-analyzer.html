@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radial Power Spectrum Analyzer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 30px;
+        }
+        .upload-area:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+        }
+        .upload-area.dragover {
+            background: #e8ebff;
+            border-color: #5a67d8;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .upload-text {
+            color: #667eea;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .canvas-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .canvas-wrapper {
+            text-align: center;
+        }
+        .canvas-wrapper h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .canvas-wrapper p {
+            color: #666;
+            font-size: 12px;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+        canvas {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #f9f9f9;
+        }
+        #spectrumCanvas {
+            width: 100%;
+            height: 300px;
+        }
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-weight: 500;
+            padding: 20px;
+            display: none;
+        }
+        .controls {
+            background: #f0f2ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .controls h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .slider-group {
+            margin-bottom: 15px;
+        }
+        .slider-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-size: 14px;
+        }
+        .slider-group input[type="range"] {
+            width: 100%;
+        }
+        .info {
+            background: #f0f2ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #555;
+            line-height: 1.6;
+        }
+        .info strong {
+            color: #667eea;
+        }
+        .warning {
+            background: #fff4e6;
+            border-left: 4px solid #ff9800;
+            padding: 12px;
+            margin-top: 15px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #666;
+        }
+        button {
+            padding: 8px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #5a67d8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Radial Power Spectrum Analyzer</h1>
+        <p class="subtitle">Upload an image to compute its radial-averaged power spectrum and compare reconstructions with different phase information</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <input type="file" id="fileInput" accept="image/*">
+            <div class="upload-text">
+                Click or drag an image here to analyze<br>
+                <small style="color: #999;">Supports JPG, PNG, GIF, etc.</small>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">Processing image...</div>
+        
+        <div id="controlsContainer" style="display: none;">
+            <div class="controls">
+                <h3>🎛️ Interactive Frequency Filtering</h3>
+                <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                    Adjust frequency content and see how it affects all three reconstructions
+                </p>
+                <div class="slider-group">
+                    <label for="veryLowFreqSlider">
+                        Very Low Frequencies (0-5%): <strong><span id="veryLowFreqValue">1.0</span>x</strong>
+                        <small style="display: block; color: #888;">Overall brightness, largest features</small>
+                    </label>
+                    <input type="range" id="veryLowFreqSlider" min="0" max="200" value="100" step="1">
+                </div>
+                <div class="slider-group">
+                    <label for="lowFreqSlider">
+                        Low Frequencies (5-15%): <strong><span id="lowFreqValue">1.0</span>x</strong>
+                        <small style="display: block; color: #888;">Large-scale structures and shapes</small>
+                    </label>
+                    <input type="range" id="lowFreqSlider" min="0" max="200" value="100" step="1">
+                </div>
+                <div class="slider-group">
+                    <label for="midFreqSlider">
+                        Mid Frequencies (15-40%): <strong><span id="midFreqValue">1.0</span>x</strong>
+                        <small style="display: block; color: #888;">Most visible details and textures</small>
+                    </label>
+                    <input type="range" id="midFreqSlider" min="0" max="200" value="100" step="1">
+                </div>
+                <div class="slider-group">
+                    <label for="highFreqSlider">
+                        High Frequencies (40-100%): <strong><span id="highFreqValue">1.0</span>x</strong>
+                        <small style="display: block; color: #888;">Fine edges, sharp transitions, noise</small>
+                    </label>
+                    <input type="range" id="highFreqSlider" min="0" max="200" value="100" step="1">
+                </div>
+                <button id="resetButton">Reset All Filters</button>
+            </div>
+        </div>
+        
+        <div class="canvas-container" id="canvasContainer" style="display: none;">
+            <div class="canvas-wrapper">
+                <h3>Original Image</h3>
+                <canvas id="imageCanvas"></canvas>
+            </div>
+            <div class="canvas-wrapper">
+                <h3>2D Power Spectrum</h3>
+                <canvas id="powerCanvas"></canvas>
+                <p>Log scale visualization of frequency magnitudes</p>
+            </div>
+            <div class="canvas-wrapper">
+                <h3>Full Reconstruction</h3>
+                <canvas id="reconstructCanvas"></canvas>
+                <p>Uses original magnitude + phase</p>
+            </div>
+            <div class="canvas-wrapper">
+                <h3>Zero Phase Reconstruction</h3>
+                <canvas id="zeroPhaseCanvas"></canvas>
+                <p>Magnitude only, zero phase</p>
+            </div>
+            <div class="canvas-wrapper">
+                <h3>Random Phase Reconstruction</h3>
+                <canvas id="randomPhaseCanvas"></canvas>
+                <p>Magnitude with random phase</p>
+            </div>
+        </div>
+        
+        <div class="canvas-wrapper" id="spectrumContainer" style="display: none;">
+            <h3>Radial-Averaged Power Spectrum</h3>
+            <canvas id="spectrumCanvas"></canvas>
+        </div>
+        
+        <div class="info">
+            <strong>What is this?</strong> The radial power spectrum shows the distribution of spatial frequencies in an image. 
+            High values at low frequencies indicate large-scale features, while high values at high frequencies indicate fine details and edges.
+            The radial average provides a rotationally-invariant measure of frequency content.
+            
+            <div class="warning">
+                <strong>⚠️ Phase Matters!</strong> These reconstructions demonstrate the critical importance of phase:
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li><strong>Full Reconstruction:</strong> Uses both magnitude and phase → perfect recovery of the original</li>
+                    <li><strong>Zero Phase:</strong> Uses magnitude with all phases set to zero → produces the autocorrelation function</li>
+                    <li><strong>Random Phase:</strong> Uses magnitude with randomized phases → produces noise-like static</li>
+                </ul>
+                Use the sliders above to modify the magnitude of different frequency bands and watch all three reconstructions update!
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // FFT implementation
+        class FFT {
+            constructor(size) {
+                this.size = size;
+                this.log2Size = Math.log2(size);
+                if (!Number.isInteger(this.log2Size)) {
+                    throw new Error('Size must be a power of 2');
+                }
+                this.precomputeTwiddles();
+            }
+            
+            precomputeTwiddles() {
+                this.twiddles = new Array(this.size);
+                this.twiddlesInv = new Array(this.size);
+                for (let i = 0; i < this.size; i++) {
+                    const angle = -2 * Math.PI * i / this.size;
+                    this.twiddles[i] = {
+                        real: Math.cos(angle),
+                        imag: Math.sin(angle)
+                    };
+                    this.twiddlesInv[i] = {
+                        real: Math.cos(-angle),
+                        imag: Math.sin(-angle)
+                    };
+                }
+            }
+            
+            transform(real, imag, inverse = false) {
+                const n = this.size;
+                const twiddles = inverse ? this.twiddlesInv : this.twiddles;
+                
+                const indices = new Array(n);
+                for (let i = 0; i < n; i++) {
+                    indices[i] = this.reverseBits(i, this.log2Size);
+                }
+                
+                const realOut = new Array(n);
+                const imagOut = new Array(n);
+                for (let i = 0; i < n; i++) {
+                    realOut[i] = real[indices[i]];
+                    imagOut[i] = imag[indices[i]];
+                }
+                
+                for (let size = 2; size <= n; size *= 2) {
+                    const halfsize = size / 2;
+                    const tablestep = n / size;
+                    for (let i = 0; i < n; i += size) {
+                        for (let j = i, k = 0; j < i + halfsize; j++, k += tablestep) {
+                            const twiddle = twiddles[k];
+                            const re = realOut[j + halfsize] * twiddle.real - imagOut[j + halfsize] * twiddle.imag;
+                            const im = realOut[j + halfsize] * twiddle.imag + imagOut[j + halfsize] * twiddle.real;
+                            realOut[j + halfsize] = realOut[j] - re;
+                            imagOut[j + halfsize] = imagOut[j] - im;
+                            realOut[j] += re;
+                            imagOut[j] += im;
+                        }
+                    }
+                }
+                
+                if (inverse) {
+                    for (let i = 0; i < n; i++) {
+                        realOut[i] /= n;
+                        imagOut[i] /= n;
+                    }
+                }
+                
+                return { real: realOut, imag: imagOut };
+            }
+            
+            reverseBits(x, bits) {
+                let y = 0;
+                for (let i = 0; i < bits; i++) {
+                    y = (y << 1) | (x & 1);
+                    x >>= 1;
+                }
+                return y;
+            }
+        }
+
+        // UI elements
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const loading = document.getElementById('loading');
+        const controlsContainer = document.getElementById('controlsContainer');
+        const canvasContainer = document.getElementById('canvasContainer');
+        const spectrumContainer = document.getElementById('spectrumContainer');
+        const imageCanvas = document.getElementById('imageCanvas');
+        const powerCanvas = document.getElementById('powerCanvas');
+        const reconstructCanvas = document.getElementById('reconstructCanvas');
+        const zeroPhaseCanvas = document.getElementById('zeroPhaseCanvas');
+        const randomPhaseCanvas = document.getElementById('randomPhaseCanvas');
+        const spectrumCanvas = document.getElementById('spectrumCanvas');
+        
+        const veryLowFreqSlider = document.getElementById('veryLowFreqSlider');
+        const lowFreqSlider = document.getElementById('lowFreqSlider');
+        const midFreqSlider = document.getElementById('midFreqSlider');
+        const highFreqSlider = document.getElementById('highFreqSlider');
+        const veryLowFreqValue = document.getElementById('veryLowFreqValue');
+        const lowFreqValue = document.getElementById('lowFreqValue');
+        const midFreqValue = document.getElementById('midFreqValue');
+        const highFreqValue = document.getElementById('highFreqValue');
+        const resetButton = document.getElementById('resetButton');
+
+        // Global state
+        let currentFFT = null;
+        let currentWidth = 0;
+        let currentHeight = 0;
+        let currentFFTSize = 0;
+        let fft = null;
+        let randomPhaseData = null; // Store random phase for consistency
+
+        // Upload handlers
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                processImage(file);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                processImage(file);
+            }
+        });
+
+        // Slider handlers
+        veryLowFreqSlider.addEventListener('input', () => {
+            const val = (veryLowFreqSlider.value / 100).toFixed(1);
+            veryLowFreqValue.textContent = val;
+            updateReconstructions();
+        });
+
+        lowFreqSlider.addEventListener('input', () => {
+            const val = (lowFreqSlider.value / 100).toFixed(1);
+            lowFreqValue.textContent = val;
+            updateReconstructions();
+        });
+
+        midFreqSlider.addEventListener('input', () => {
+            const val = (midFreqSlider.value / 100).toFixed(1);
+            midFreqValue.textContent = val;
+            updateReconstructions();
+        });
+
+        highFreqSlider.addEventListener('input', () => {
+            const val = (highFreqSlider.value / 100).toFixed(1);
+            highFreqValue.textContent = val;
+            updateReconstructions();
+        });
+
+        resetButton.addEventListener('click', () => {
+            veryLowFreqSlider.value = 100;
+            lowFreqSlider.value = 100;
+            midFreqSlider.value = 100;
+            highFreqSlider.value = 100;
+            veryLowFreqValue.textContent = '1.0';
+            lowFreqValue.textContent = '1.0';
+            midFreqValue.textContent = '1.0';
+            highFreqValue.textContent = '1.0';
+            updateReconstructions();
+        });
+
+        function processImage(file) {
+            loading.style.display = 'block';
+            controlsContainer.style.display = 'none';
+            canvasContainer.style.display = 'none';
+            spectrumContainer.style.display = 'none';
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    setTimeout(() => analyzeImage(img), 10);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function nextPowerOf2(n) {
+            return Math.pow(2, Math.ceil(Math.log2(n)));
+        }
+
+        function analyzeImage(img) {
+            const maxDim = 512;
+            const scale = Math.min(maxDim / img.width, maxDim / img.height, 1);
+            currentWidth = Math.floor(img.width * scale);
+            currentHeight = Math.floor(img.height * scale);
+            
+            imageCanvas.width = currentWidth;
+            imageCanvas.height = currentHeight;
+            const ctx = imageCanvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
+            
+            const imageData = ctx.getImageData(0, 0, currentWidth, currentHeight);
+            const data = imageData.data;
+            const grayscale = new Float64Array(currentWidth * currentHeight);
+            
+            for (let i = 0; i < currentWidth * currentHeight; i++) {
+                const r = data[i * 4];
+                const g = data[i * 4 + 1];
+                const b = data[i * 4 + 2];
+                grayscale[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+            }
+            
+            currentFFTSize = nextPowerOf2(Math.max(currentWidth, currentHeight));
+            const padded = new Float64Array(currentFFTSize * currentFFTSize);
+            for (let y = 0; y < currentHeight; y++) {
+                for (let x = 0; x < currentWidth; x++) {
+                    padded[y * currentFFTSize + x] = grayscale[y * currentWidth + x];
+                }
+            }
+            
+            fft = new FFT(currentFFTSize);
+            const realData = new Array(currentFFTSize);
+            const imagData = new Array(currentFFTSize);
+            
+            for (let i = 0; i < currentFFTSize; i++) {
+                realData[i] = new Float64Array(currentFFTSize);
+                imagData[i] = new Float64Array(currentFFTSize);
+            }
+            
+            for (let y = 0; y < currentFFTSize; y++) {
+                for (let x = 0; x < currentFFTSize; x++) {
+                    realData[y][x] = padded[y * currentFFTSize + x];
+                    imagData[y][x] = 0;
+                }
+            }
+            
+            // FFT on rows
+            for (let y = 0; y < currentFFTSize; y++) {
+                const result = fft.transform(realData[y], imagData[y]);
+                realData[y] = result.real;
+                imagData[y] = result.imag;
+            }
+            
+            // Transpose
+            const realTranspose = new Array(currentFFTSize);
+            const imagTranspose = new Array(currentFFTSize);
+            for (let i = 0; i < currentFFTSize; i++) {
+                realTranspose[i] = new Float64Array(currentFFTSize);
+                imagTranspose[i] = new Float64Array(currentFFTSize);
+                for (let j = 0; j < currentFFTSize; j++) {
+                    realTranspose[i][j] = realData[j][i];
+                    imagTranspose[i][j] = imagData[j][i];
+                }
+            }
+            
+            // FFT on columns
+            for (let x = 0; x < currentFFTSize; x++) {
+                const result = fft.transform(realTranspose[x], imagTranspose[x]);
+                realTranspose[x] = result.real;
+                imagTranspose[x] = result.imag;
+            }
+            
+            // Store FFT
+            currentFFT = { real: new Array(currentFFTSize), imag: new Array(currentFFTSize) };
+            const power = new Float64Array(currentFFTSize * currentFFTSize);
+            
+            for (let i = 0; i < currentFFTSize; i++) {
+                currentFFT.real[i] = new Float64Array(currentFFTSize);
+                currentFFT.imag[i] = new Float64Array(currentFFTSize);
+            }
+            
+            for (let y = 0; y < currentFFTSize; y++) {
+                for (let x = 0; x < currentFFTSize; x++) {
+                    const re = realTranspose[x][y];
+                    const im = imagTranspose[x][y];
+                    currentFFT.real[y][x] = re;
+                    currentFFT.imag[y][x] = im;
+                    power[y * currentFFTSize + x] = re * re + im * im;
+                }
+            }
+            
+            // Generate random phase once
+            randomPhaseData = new Array(currentFFTSize);
+            for (let i = 0; i < currentFFTSize; i++) {
+                randomPhaseData[i] = new Float64Array(currentFFTSize);
+                for (let j = 0; j < currentFFTSize; j++) {
+                    randomPhaseData[i][j] = Math.random() * 2 * Math.PI;
+                }
+            }
+            
+            // Display power spectrum
+            const shifted = new Float64Array(currentFFTSize * currentFFTSize);
+            const half = currentFFTSize / 2;
+            for (let y = 0; y < currentFFTSize; y++) {
+                for (let x = 0; x < currentFFTSize; x++) {
+                    const newY = (y + half) % currentFFTSize;
+                    const newX = (x + half) % currentFFTSize;
+                    shifted[newY * currentFFTSize + newX] = power[y * currentFFTSize + x];
+                }
+            }
+            
+            displayPowerSpectrum(shifted, currentFFTSize);
+            
+            const radialSpectrum = computeRadialAverage(shifted, currentFFTSize);
+            displayRadialSpectrum(radialSpectrum);
+            
+            updateReconstructions();
+            
+            loading.style.display = 'none';
+            controlsContainer.style.display = 'block';
+            canvasContainer.style.display = 'grid';
+            spectrumContainer.style.display = 'block';
+        }
+
+        function updateReconstructions() {
+            if (!currentFFT) return;
+            
+            const veryLowMult = veryLowFreqSlider.value / 100;
+            const lowMult = lowFreqSlider.value / 100;
+            const midMult = midFreqSlider.value / 100;
+            const highMult = highFreqSlider.value / 100;
+            
+            reconstructImage('full', veryLowMult, lowMult, midMult, highMult);
+            reconstructImage('zero', veryLowMult, lowMult, midMult, highMult);
+            reconstructImage('random', veryLowMult, lowMult, midMult, highMult);
+        }
+
+        function reconstructImage(type, veryLowMult, lowMult, midMult, highMult) {
+            let canvas;
+            if (type === 'full') canvas = reconstructCanvas;
+            else if (type === 'zero') canvas = zeroPhaseCanvas;
+            else canvas = randomPhaseCanvas;
+            
+            const realData = new Array(currentFFTSize);
+            const imagData = new Array(currentFFTSize);
+            
+            for (let i = 0; i < currentFFTSize; i++) {
+                realData[i] = new Float64Array(currentFFTSize);
+                imagData[i] = new Float64Array(currentFFTSize);
+            }
+            
+            const center = currentFFTSize / 2;
+            const maxRadius = center;
+            
+            for (let y = 0; y < currentFFTSize; y++) {
+                for (let x = 0; x < currentFFTSize; x++) {
+                    // Account for FFT wrapping - frequencies wrap around at Nyquist
+                    let fx = x;
+                    let fy = y;
+                    if (fx > currentFFTSize / 2) fx = currentFFTSize - fx;
+                    if (fy > currentFFTSize / 2) fy = currentFFTSize - fy;
+                    
+                    const radius = Math.sqrt(fx * fx + fy * fy);
+                    const normRadius = radius / maxRadius;
+                    
+                    let mult = 1.0;
+                    if (normRadius < 0.05) mult = veryLowMult;
+                    else if (normRadius < 0.15) mult = lowMult;
+                    else if (normRadius < 0.40) mult = midMult;
+                    else mult = highMult;
+                    
+                    const magnitude = Math.sqrt(
+                        currentFFT.real[y][x] * currentFFT.real[y][x] + 
+                        currentFFT.imag[y][x] * currentFFT.imag[y][x]
+                    ) * mult;
+                    
+                    if (type === 'full') {
+                        const phase = Math.atan2(currentFFT.imag[y][x], currentFFT.real[y][x]);
+                        realData[y][x] = magnitude * Math.cos(phase);
+                        imagData[y][x] = magnitude * Math.sin(phase);
+                    } else if (type === 'zero') {
+                        realData[y][x] = magnitude;
+                        imagData[y][x] = 0;
+                    } else {
+                        const phase = randomPhaseData[y][x];
+                        realData[y][x] = magnitude * Math.cos(phase);
+                        imagData[y][x] = magnitude * Math.sin(phase);
+                    }
+                }
+            }
+            
+            // Transpose for IFFT
+            const realTranspose = new Array(currentFFTSize);
+            const imagTranspose = new Array(currentFFTSize);
+            for (let i = 0; i < currentFFTSize; i++) {
+                realTranspose[i] = new Float64Array(currentFFTSize);
+                imagTranspose[i] = new Float64Array(currentFFTSize);
+                for (let j = 0; j < currentFFTSize; j++) {
+                    realTranspose[i][j] = realData[j][i];
+                    imagTranspose[i][j] = imagData[j][i];
+                }
+            }
+            
+            // IFFT on columns
+            for (let x = 0; x < currentFFTSize; x++) {
+                const result = fft.transform(realTranspose[x], imagTranspose[x], true);
+                realTranspose[x] = result.real;
+                imagTranspose[x] = result.imag;
+            }
+            
+            // Transpose back
+            for (let i = 0; i < currentFFTSize; i++) {
+                for (let j = 0; j < currentFFTSize; j++) {
+                    realData[j][i] = realTranspose[i][j];
+                    imagData[j][i] = imagTranspose[i][j];
+                }
+            }
+            
+            // IFFT on rows
+            for (let y = 0; y < currentFFTSize; y++) {
+                const result = fft.transform(realData[y], imagData[y], true);
+                realData[y] = result.real;
+                imagData[y] = result.imag;
+            }
+            
+            // Display
+            canvas.width = currentWidth;
+            canvas.height = currentHeight;
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.createImageData(currentWidth, currentHeight);
+            
+            if (type === 'zero') {
+                const values = [];
+                for (let y = 0; y < currentHeight; y++) {
+                    for (let x = 0; x < currentWidth; x++) {
+                        values.push(Math.abs(realData[y][x]));
+                    }
+                }
+                values.sort((a, b) => a - b);
+                const maxVal = values[Math.floor(values.length * 0.99)];
+                
+                for (let y = 0; y < currentHeight; y++) {
+                    for (let x = 0; x < currentWidth; x++) {
+                        const val = Math.min(Math.abs(realData[y][x]), maxVal);
+                        const logVal = Math.log(1 + val * 100) / Math.log(1 + maxVal * 100);
+                        const intensity = Math.floor(logVal * 255);
+                        const idx = (y * currentWidth + x) * 4;
+                        imageData.data[idx] = intensity;
+                        imageData.data[idx + 1] = intensity;
+                        imageData.data[idx + 2] = intensity;
+                        imageData.data[idx + 3] = 255;
+                    }
+                }
+            } else {
+                let minVal = Infinity, maxVal = -Infinity;
+                for (let y = 0; y < currentHeight; y++) {
+                    for (let x = 0; x < currentWidth; x++) {
+                        const val = realData[y][x];
+                        if (val < minVal) minVal = val;
+                        if (val > maxVal) maxVal = val;
+                    }
+                }
+                
+                const range = maxVal - minVal;
+                for (let y = 0; y < currentHeight; y++) {
+                    for (let x = 0; x < currentWidth; x++) {
+                        const val = (realData[y][x] - minVal) / range;
+                        const intensity = Math.floor(val * 255);
+                        const idx = (y * currentWidth + x) * 4;
+                        imageData.data[idx] = intensity;
+                        imageData.data[idx + 1] = intensity;
+                        imageData.data[idx + 2] = intensity;
+                        imageData.data[idx + 3] = 255;
+                    }
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function displayPowerSpectrum(power, size) {
+            powerCanvas.width = size;
+            powerCanvas.height = size;
+            const ctx = powerCanvas.getContext('2d');
+            const imageData = ctx.createImageData(size, size);
+            
+            let maxPower = 0;
+            for (let i = 0; i < power.length; i++) {
+                if (power[i] > maxPower) maxPower = power[i];
+            }
+            
+            for (let i = 0; i < power.length; i++) {
+                const logVal = Math.log(1 + power[i]) / Math.log(1 + maxPower);
+                const intensity = Math.floor(logVal * 255);
+                imageData.data[i * 4] = intensity;
+                imageData.data[i * 4 + 1] = intensity;
+                imageData.data[i * 4 + 2] = intensity;
+                imageData.data[i * 4 + 3] = 255;
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function computeRadialAverage(power, size) {
+            const center = size / 2;
+            const maxRadius = Math.floor(center);
+            const bins = new Array(maxRadius).fill(0);
+            const counts = new Array(maxRadius).fill(0);
+            
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const dx = x - center;
+                    const dy = y - center;
+                    const radius = Math.sqrt(dx * dx + dy * dy);
+                    const bin = Math.floor(radius);
+                    
+                    if (bin < maxRadius) {
+                        bins[bin] += power[y * size + x];
+                        counts[bin]++;
+                    }
+                }
+            }
+            
+            for (let i = 0; i < maxRadius; i++) {
+                if (counts[i] > 0) bins[i] /= counts[i];
+            }
+            
+            return bins;
+        }
+
+        function displayRadialSpectrum(spectrum) {
+            const canvas = spectrumCanvas;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, width, height);
+            
+            const startBin = 2;
+            let maxVal = 0;
+            for (let i = startBin; i < spectrum.length; i++) {
+                if (spectrum[i] > maxVal) maxVal = spectrum[i];
+            }
+            
+            const padding = 50;
+            const graphWidth = width - 2 * padding;
+            const graphHeight = height - 2 * padding;
+            
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, height - padding);
+            ctx.lineTo(width - padding, height - padding);
+            ctx.stroke();
+            
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (i * graphHeight / 5);
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(width - padding, y);
+                ctx.stroke();
+            }
+            
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            for (let i = 0; i < spectrum.length; i++) {
+                const x = padding + (i / spectrum.length) * graphWidth;
+                const logVal = Math.log(1 + spectrum[i]) / Math.log(1 + maxVal);
+                const y = height - padding - logVal * graphHeight;
+                
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            
+            ctx.fillStyle = '#333';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Frequency (cycles/pixel)', width / 2, height - 10);
+            
+            ctx.save();
+            ctx.translate(15, height / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Power (log scale)', 0, 0);
+            ctx.restore();
+        }
+    </script>
+</body>
+</html>
