@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rambo III Dedication Generator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a1a;
+      color: #ccc;
+      font-family: Georgia, serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 48px;
+    }
+
+    h1 {
+      font-size: 1.2rem;
+      font-weight: normal;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+
+    .subtitle {
+      font-size: 0.78rem;
+      color: #555;
+      margin-bottom: 28px;
+      text-align: center;
+      font-style: italic;
+    }
+
+    /* ── Canvas preview ── */
+    #canvas-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 720px;
+      background: #000;
+      border: 1px solid #333;
+      cursor: pointer;
+    }
+
+    #canvas-wrap canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .drop-hint {
+      position: absolute;
+      bottom: 10px;
+      right: 12px;
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.25);
+      pointer-events: none;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      width: 100%;
+      max-width: 720px;
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    label {
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #666;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    textarea {
+      width: 100%;
+      background: #111;
+      border: 1px solid #333;
+      color: #eee;
+      font-family: Georgia, serif;
+      font-size: 1rem;
+      line-height: 1.6;
+      padding: 10px 14px;
+      resize: vertical;
+      min-height: 90px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    textarea:focus { border-color: #555; }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .row > div { flex: 1; min-width: 120px; }
+
+    input[type=range] {
+      width: 100%;
+      accent-color: #888;
+    }
+
+    input[type=color] {
+      width: 44px;
+      height: 28px;
+      border: 1px solid #444;
+      background: none;
+      cursor: pointer;
+      padding: 1px;
+    }
+
+    select {
+      background: #111;
+      border: 1px solid #333;
+      color: #eee;
+      font-size: 0.85rem;
+      padding: 5px 8px;
+      outline: none;
+      width: 100%;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    button {
+      flex: 1;
+      min-width: 120px;
+      padding: 11px 18px;
+      border: 1px solid #444;
+      background: #222;
+      color: #ccc;
+      font-family: Georgia, serif;
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    button:hover { background: #2e2e2e; border-color: #666; color: #fff; }
+
+    #btn-upload { }
+    #btn-download {
+      background: #1c2b1c;
+      border-color: #3a5c3a;
+      color: #8fc48f;
+    }
+    #btn-download:hover { background: #243224; border-color: #5a8c5a; color: #aaddaa; }
+
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .range-row input { flex: 1; }
+    .range-val {
+      width: 36px;
+      text-align: right;
+      font-size: 0.8rem;
+      color: #666;
+    }
+
+    input[type=file] { display: none; }
+
+    hr {
+      border: none;
+      border-top: 1px solid #2a2a2a;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Rambo III Dedication Generator</h1>
+<p class="subtitle">Recreate the famous hoax dedication card &mdash; with your own text</p>
+
+<div id="canvas-wrap" title="Click or drag an image here to set background">
+  <canvas id="c" width="1280" height="720"></canvas>
+  <span class="drop-hint">click or drag image to set background</span>
+</div>
+
+<div class="controls">
+
+  <div>
+    <label>Dedication Text</label>
+    <textarea id="txt">This film is dedicated to the brave Mujahideen fighters of Afghanistan.</textarea>
+  </div>
+
+  <hr>
+
+  <div class="row">
+    <div>
+      <label>Font Size</label>
+      <div class="range-row">
+        <input type="range" id="fontSize" min="14" max="80" value="38">
+        <span class="range-val" id="fontSizeVal">38</span>
+      </div>
+    </div>
+    <div>
+      <label>Vertical Position</label>
+      <div class="range-row">
+        <input type="range" id="yPos" min="0" max="100" value="50">
+        <span class="range-val" id="yPosVal">50%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Text Color</label>
+      <input type="color" id="textColor" value="#ffffff">
+    </div>
+    <div>
+      <label>Overlay Darkness</label>
+      <div class="range-row">
+        <input type="range" id="overlay" min="0" max="90" value="30">
+        <span class="range-val" id="overlayVal">30%</span>
+      </div>
+    </div>
+    <div>
+      <label>Letter Spacing</label>
+      <div class="range-row">
+        <input type="range" id="letterSpacing" min="-2" max="12" value="2" step="0.5">
+        <span class="range-val" id="letterSpacingVal">2</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Font</label>
+      <select id="fontFamily">
+        <option value="'Times New Roman', Times, serif" selected>Times New Roman (default)</option>
+        <option value="Georgia, serif">Georgia</option>
+        <option value="Palatino, 'Palatino Linotype', serif">Palatino</option>
+        <option value="'Book Antiqua', serif">Book Antiqua</option>
+        <option value="Garamond, serif">Garamond</option>
+        <option value="Helvetica, Arial, sans-serif">Helvetica</option>
+        <option value="'Arial Narrow', Arial, sans-serif">Arial Narrow</option>
+        <option value="Futura, 'Century Gothic', sans-serif">Futura / Century Gothic</option>
+      </select>
+    </div>
+    <div>
+      <label>Style</label>
+      <select id="fontStyle">
+        <option value="normal" selected>Normal</option>
+        <option value="italic">Italic</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button id="btn-upload">&#128444; Upload Background Image</button>
+    <input type="file" id="fileInput" accept="image/*">
+    <button id="btn-download">&#8615; Download Image</button>
+  </div>
+
+</div>
+
+<script>
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+
+  const W = 1280, H = 720;
+  canvas.width = W;
+  canvas.height = H;
+
+  let bgImage = null;
+
+  // ── Controls ──────────────────────────────────────────────
+  const txtEl        = document.getElementById('txt');
+  const fontSizeEl   = document.getElementById('fontSize');
+  const yPosEl       = document.getElementById('yPos');
+  const textColorEl  = document.getElementById('textColor');
+  const overlayEl    = document.getElementById('overlay');
+  const lsEl         = document.getElementById('letterSpacing');
+  const fontFamilyEl = document.getElementById('fontFamily');
+  const fontStyleEl  = document.getElementById('fontStyle');
+
+  function syncLabels() {
+    document.getElementById('fontSizeVal').textContent    = fontSizeEl.value;
+    document.getElementById('yPosVal').textContent        = yPosEl.value + '%';
+    document.getElementById('overlayVal').textContent     = overlayEl.value + '%';
+    document.getElementById('letterSpacingVal').textContent = lsEl.value;
+  }
+
+  // ── Draw ──────────────────────────────────────────────────
+  function drawTextWithLetterSpacing(ctx, text, x, y, letterSpacing) {
+    if (!letterSpacing) {
+      ctx.fillText(text, x, y);
+      return;
+    }
+    const chars = [...text];
+    // Measure total width manually
+    let totalWidth = 0;
+    const widths = chars.map(ch => {
+      const w = ctx.measureText(ch).width;
+      totalWidth += w;
+      return w;
+    });
+    totalWidth += letterSpacing * (chars.length - 1);
+
+    let cx = x - totalWidth / 2;
+    chars.forEach((ch, i) => {
+      ctx.fillText(ch, cx + widths[i] / 2, y);
+      cx += widths[i] + letterSpacing;
+    });
+  }
+
+  function wrapText(ctx, text, maxWidth, letterSpacing) {
+    const words = text.split(' ');
+    const lines = [];
+    let current = '';
+
+    for (const word of words) {
+      const test = current ? current + ' ' + word : word;
+      const testWidth = measureWithSpacing(ctx, test, letterSpacing);
+      if (testWidth > maxWidth && current) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = test;
+      }
+    }
+    if (current) lines.push(current);
+    return lines;
+  }
+
+  function measureWithSpacing(ctx, text, letterSpacing) {
+    if (!letterSpacing) return ctx.measureText(text).width;
+    const chars = [...text];
+    let w = 0;
+    chars.forEach(ch => { w += ctx.measureText(ch).width; });
+    w += letterSpacing * (chars.length - 1);
+    return w;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Background
+    if (bgImage) {
+      // Cover-fit
+      const scale = Math.max(W / bgImage.width, H / bgImage.height);
+      const sw = bgImage.width * scale;
+      const sh = bgImage.height * scale;
+      ctx.drawImage(bgImage, (W - sw) / 2, (H - sh) / 2, sw, sh);
+    } else {
+      // Default: cinematic dark gradient
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#0d0d0d');
+      grad.addColorStop(0.45, '#1a1510');
+      grad.addColorStop(1, '#050505');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+      // Subtle vignette-like grain texture suggestion
+      ctx.fillStyle = 'rgba(20,15,5,0.3)';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Dark overlay
+    const alpha = parseInt(overlayEl.value) / 100;
+    if (alpha > 0) {
+      ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Text settings
+    const fontSize    = parseInt(fontSizeEl.value);
+    const yPct        = parseInt(yPosEl.value) / 100;
+    const color       = textColorEl.value;
+    const letterSpacing = parseFloat(lsEl.value);
+    const family      = fontFamilyEl.value;
+    const style       = fontStyleEl.value;
+    const rawText     = txtEl.value.trim();
+
+    ctx.font        = `${style} ${fontSize}px ${family}`;
+    ctx.fillStyle   = color;
+    ctx.textAlign   = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Wrap at 80% width
+    const maxWidth = W * 0.80;
+    // Handle explicit newlines too
+    const paragraphs = rawText.split('\n');
+    let allLines = [];
+    for (const para of paragraphs) {
+      if (para.trim() === '') {
+        allLines.push('');
+      } else {
+        allLines = allLines.concat(wrapText(ctx, para, maxWidth, letterSpacing));
+      }
+    }
+
+    const lineHeight = fontSize * 1.55;
+    const totalTextH = allLines.length * lineHeight;
+    const centerY    = H * yPct;
+    const startY     = centerY - totalTextH / 2 + lineHeight / 2;
+
+    allLines.forEach((line, i) => {
+      const y = startY + i * lineHeight;
+      if (line === '') return;
+      drawTextWithLetterSpacing(ctx, line, W / 2, y, letterSpacing);
+    });
+  }
+
+  // ── Load background image ─────────────────────────────────
+  function loadImageFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => { bgImage = img; draw(); };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // File input
+  document.getElementById('btn-upload').addEventListener('click', () => {
+    document.getElementById('fileInput').click();
+  });
+  document.getElementById('fileInput').addEventListener('change', e => {
+    if (e.target.files[0]) loadImageFile(e.target.files[0]);
+  });
+
+  // Drag-and-drop on canvas wrapper
+  const wrap = document.getElementById('canvas-wrap');
+  wrap.addEventListener('dragover', e => { e.preventDefault(); wrap.style.outline = '2px solid #666'; });
+  wrap.addEventListener('dragleave', () => { wrap.style.outline = ''; });
+  wrap.addEventListener('drop', e => {
+    e.preventDefault();
+    wrap.style.outline = '';
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) loadImageFile(file);
+  });
+  wrap.addEventListener('click', () => {
+    document.getElementById('fileInput').click();
+  });
+
+  // ── Download ──────────────────────────────────────────────
+  document.getElementById('btn-download').addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'dedication.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+
+  // ── Live updates ──────────────────────────────────────────
+  [txtEl, fontSizeEl, yPosEl, textColorEl, overlayEl, lsEl, fontFamilyEl, fontStyleEl].forEach(el => {
+    el.addEventListener('input', () => { syncLabels(); draw(); });
+    el.addEventListener('change', () => { syncLabels(); draw(); });
+  });
+
+  // ── Init ─────────────────────────────────────────────────
+  syncLabels();
+  draw();
+</script>
+</body>
+</html>
