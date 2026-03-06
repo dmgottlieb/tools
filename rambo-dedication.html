@@ -242,9 +242,9 @@ OF AFGHANISTAN</textarea>
 
   <div class="row">
     <div>
-      <label>Drop Shadow</label>
+      <label>Glow / Shadow</label>
       <div class="range-row">
-        <input type="range" id="shadowBlur" min="0" max="20" value="3">
+        <input type="range" id="shadowBlur" min="0" max="20" value="6">
         <span class="range-val" id="shadowBlurVal">3</span>
       </div>
     </div>
@@ -387,15 +387,8 @@ OF AFGHANISTAN</textarea>
     const rawText       = txtEl.value.trim();
 
     ctx.font         = `${fontSize}px ${family}`;
-    ctx.fillStyle    = color;
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-
-    // Drop shadow
-    ctx.shadowColor   = 'rgba(0,0,0,0.75)';
-    ctx.shadowBlur    = shadowBlur;
-    ctx.shadowOffsetX = 1;
-    ctx.shadowOffsetY = 1;
 
     const maxWidth = W * 0.75;
     const paragraphs = rawText.split('\n');
@@ -414,16 +407,37 @@ OF AFGHANISTAN</textarea>
     const centerY    = H * yPct;
     const startY     = centerY - totalTextH / 2 + lineHeight / 2;
 
-    allLines.forEach((line, i) => {
-      if (!line.trim()) return;
-      drawTextWithLetterSpacing(ctx, line, W / 2, startY + i * lineHeight, letterSpacing);
-    });
+    function renderLines(drawFn) {
+      allLines.forEach((line, i) => {
+        if (!line.trim()) return;
+        drawFn(line, W / 2, startY + i * lineHeight);
+      });
+    }
 
-    // Reset shadow so it doesn't affect other drawing
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur  = 0;
+    // ── Optical-film halation effect (3-pass) ─────────────────
+    // Pass 1: wide soft white glow — mimics optical title bloom
+    ctx.fillStyle     = 'rgba(255,255,255,0.18)';
+    ctx.shadowColor   = 'rgba(255,255,255,0.35)';
+    ctx.shadowBlur    = shadowBlur * 3.5;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
+    renderLines((t, x, y) => drawTextWithLetterSpacing(ctx, t, x, y, letterSpacing));
+
+    // Pass 2: tight dark edge for legibility over bright backgrounds
+    ctx.fillStyle     = color;
+    ctx.shadowColor   = 'rgba(0,0,0,0.55)';
+    ctx.shadowBlur    = shadowBlur * 1.2;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    renderLines((t, x, y) => drawTextWithLetterSpacing(ctx, t, x, y, letterSpacing));
+
+    // Pass 3: crisp white text on top — the solid core
+    ctx.fillStyle     = color;
+    ctx.shadowColor   = 'transparent';
+    ctx.shadowBlur    = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    renderLines((t, x, y) => drawTextWithLetterSpacing(ctx, t, x, y, letterSpacing));
   }
 
   // ── Load background image ─────────────────────────────────
