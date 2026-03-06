@@ -415,12 +415,14 @@ OF AFGHANISTAN</textarea>
     }
 
     // ── Optical-film halation effect (3-pass) ─────────────────
-    // Pass 1: subtle dark offset shadow for contrast/legibility
+    // Pass 1: drop shadow — offset down-right; deepens slightly with glow
+    // so brighter/bloomier title cards stay legible over bright backgrounds
+    const shadowDepth = 0.7 + shadowBlur * 0.015;   // 0.70 → 0.85 across slider
     ctx.fillStyle     = color;
-    ctx.shadowColor   = 'rgba(0,0,0,0.6)';
+    ctx.shadowColor   = `rgba(0,0,0,${shadowDepth.toFixed(2)})`;
     ctx.shadowBlur    = 3;
-    ctx.shadowOffsetX = 1;
-    ctx.shadowOffsetY = 1;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
     renderLines((t, x, y) => drawTextWithLetterSpacing(ctx, t, x, y, letterSpacing));
 
     // Pass 2: white bloom glow — draw blurred text BEFORE the crisp layer
